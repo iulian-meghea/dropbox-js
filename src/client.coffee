@@ -132,12 +132,7 @@ class Dropbox.Client
 
       switch @authState
         when DropboxClient.RESET  # No user credentials -> request token.
-          unless interactive
-            # NOTE: requestToken isn't really interactive, but it will lead to
-            #       /authorize, which is interactive; might as well stop here
-            callback null, @ if callback
-            return
-          @requestToken (error, data) =>
+          requestTokenCallback = (error,data) =>
             if error
               @authError = error
               @authState = DropboxClient.ERROR
@@ -148,7 +143,13 @@ class Dropbox.Client
               @authState = DropboxClient.REQUEST
             @_credentials = null
             @onAuthStateChange.dispatch @
-            _fsmStep()
+            # NOTE: even if not interactive store the request token now so it doesn't block popup
+            # Next authenticate call with interactive:true will use existing request token
+            unless interactive
+              return callback null, @ if callback
+            else
+               _fsmStep()
+          @requestToken requestTokenCallback
 
         when DropboxClient.REQUEST  # Have request token, get it authorized.
           unless interactive
